@@ -1,0 +1,19 @@
+[project]
+name = "simplon-ml-factory"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.135.1",
+    "loguru>=0.7.3",
+    "mlflow>=3.10.1",
+    "pytest>=9.0.2",
+    "uvicorn>=0.42.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+]
