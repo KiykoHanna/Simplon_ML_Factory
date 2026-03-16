@@ -1,10 +1,58 @@
-minio:
-  image: minio/minio
-  environment:
-    MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-    MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-  volumes:
-    - minio_data:/data
-  ports:
-    - "9000:9000"
-  command: server /data
+services:
+  # MinIO — хранилище моделей
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data       # persistent storage
+    ports:
+      - "${MINIO_PORT}:9000"
+    command: server /data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      retries: 5
+
+  # MLflow — каталог моделей (Model Registry)
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.9.2
+    container_name: mlflow
+    environment:
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    ports:
+      - "5000:5000"
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  # # API (FastAPI)
+  # api:
+  #   build: ./src/api
+  #   container_name: api
+  #   environment:
+  #     MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+  #   ports:
+  #     - "${API_PORT}:8000"
+  #   depends_on:
+  #     - mlflow
+
+  # # Front (Streamlit)
+  # front:
+  #   build: ./src/front
+  #   container_name: front
+  #   environment:
+  #     API_URL: http://api:8000
+  #   ports:
+  #     - "${FRONT_PORT}:8501"
+  #   depends_on:
+  #     - api
+
+# Persistent volumes
+volumes:
+  minio_data:
