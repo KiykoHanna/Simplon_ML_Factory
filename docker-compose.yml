@@ -9,16 +9,13 @@ services:
     volumes:
       - minio_data:/data       # persistent storage
     ports:
-      - "${MINIO_PORT}:9000"
-    command: server /data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      retries: 5
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
 
   # MLflow — каталог моделей (Model Registry)
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.9.2
+    image: python:3.10
     container_name: mlflow
     environment:
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
@@ -27,31 +24,33 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
     ports:
       - "5000:5000"
+    command: |
+      sh -c "pip install --no-cache-dir mlflow==2.12.2 && mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root s3://mlflow --host 0.0.0.0 --serve-artifacts"
     depends_on:
-      minio:
-        condition: service_healthy
+      - minio
 
-  # # API (FastAPI)
-  # api:
-  #   build: ./src/api
-  #   container_name: api
-  #   environment:
-  #     MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
-  #   ports:
-  #     - "${API_PORT}:8000"
-  #   depends_on:
-  #     - mlflow
+   
+  api:
+    build: ./src/api
+    environment:
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+      API_PORT: ${API_PORT}
+    ports:
+      - "${API_PORT}:${API_PORT}"
+    
+    depends_on:
+      - mlflow
 
-  # # Front (Streamlit)
-  # front:
-  #   build: ./src/front
-  #   container_name: front
-  #   environment:
-  #     API_URL: http://api:8000
-  #   ports:
-  #     - "${FRONT_PORT}:8501"
-  #   depends_on:
-  #     - api
+  front:
+    build: ./src/front
+    environment:
+      API_HOST: ${API_HOST}
+      API_PORT: ${API_PORT}
+      FRONT_PORT: ${FRONT_PORT}
+    ports:
+      - "${FRONT_PORT}:${FRONT_PORT}"
+    depends_on:
+      - api
 
 # Persistent volumes
 volumes:
