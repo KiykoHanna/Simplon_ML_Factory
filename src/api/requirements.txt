@@ -3,3 +3,6 @@ uvicorn
 mlflow
 scikit-learn
 pandas
+boto3
+botocore
+mlflow[s3]

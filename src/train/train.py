@@ -9,27 +9,52 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 
 # ================== ENV ==================
-os.environ["MLFLOW_S3_ENDPOINT_URL"] = "http://localhost:9000"
 os.environ["AWS_ACCESS_KEY_ID"] = "minioadmin"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "minioadmin"
 
+def in_docker():
+    try:
+        # если есть файл /.dockerenv, значит внутри контейнера
+        return os.path.exists("/.dockerenv")
+    except:
+        return False
+
+if in_docker():
+    MLFLOW_URI = "http://mlflow:5000"
+    MINIO_URI = "http://minio:9000"
+else:
+    MLFLOW_URI = "http://localhost:5000"
+    MINIO_URI = "http://localhost:9000"
+
+os.environ["MLFLOW_S3_ENDPOINT_URL"] = MINIO_URI
+mlflow.set_tracking_uri(MLFLOW_URI)
+print(f"MLflow URI: {MLFLOW_URI}, MinIO URI: {MINIO_URI}")
+
+
 # ================== MINIO ==================
 def prepare_minio():
-    """Проверяет наличие bucket 'mlflow', иначе создаёт"""
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=os.environ["MLFLOW_S3_ENDPOINT_URL"],
-    )
+    try:
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=os.environ["MLFLOW_S3_ENDPOINT_URL"],
+            aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+            aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"]
+        )
 
-    buckets = [b["Name"] for b in s3.list_buckets()["Buckets"]]
+        buckets = [b["Name"] for b in s3.list_buckets()["Buckets"]]
 
-    if "mlflow" not in buckets:
-        s3.create_bucket(Bucket="mlflow")
-        print("Bucket 'mlflow' créé avec succès.")
+        if "mlflow" not in buckets:
+            s3.create_bucket(Bucket="mlflow")
+            print("Bucket 'mlflow' создан успешно.")
+        else:
+            print("Bucket 'mlflow' уже существует.")
+
+    except Exception as e:
+        print(f"Ошибка MinIO: {e}")
 
 # ================== TRAIN ==================
 def train_and_register():
-    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_tracking_uri(MLFLOW_URI)
     mlflow.set_experiment("iris_experiment")
 
     # параметры модели
@@ -45,7 +70,7 @@ def train_and_register():
         mlflow.log_metric("accuracy", accuracy)
 
         # лог модели + регистрация
-        model_name = "model_name"
+        model_name = "iris_model"
 
         mlflow.sklearn.log_model(
             sk_model=model,
@@ -60,11 +85,10 @@ def train_and_register():
         model_name, stages=["None"]
     )[0].version
 
-    client.set_registered_model_alias(
-        model_name,
-        "Production",
-        latest_version
-    )
+    AUTO_PROMOTE = True  # False для ручного переключения
+
+    if AUTO_PROMOTE:
+        client.set_registered_model_alias(model_name, "Production", latest_version)
 
 # ================== DATA ==================
 iris = load_iris()

@@ -1,8 +1,10 @@
+import os
 from fastapi import FastAPI, HTTPException
 import mlflow
 from mlflow.tracking import MlflowClient
 from pydantic import BaseModel
 import pandas as pd
+
 
 app = FastAPI(title="ML Factory API")
 
@@ -14,7 +16,7 @@ MODEL_ALIAS = "Production"
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 client = MlflowClient(tracking_uri=MLFLOW_TRACKING_URI)
-
+print("MLflow URI:", os.environ.get("MLFLOW_TRACKING_URI"))
 # ================== CACHE ==================
 state = {
     "model": None,

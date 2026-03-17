@@ -29,6 +29,7 @@ services:
         --backend-store-uri sqlite:///mlflow.db
         --default-artifact-root s3://mlflow/
         --host 0.0.0.0
+        --allowed-hosts "mlflow:*, localhost:*, minio:*"
     depends_on:
       - minio
 
@@ -37,6 +38,9 @@ services:
     build: ./src/api
     environment:
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       API_PORT: ${API_PORT}
     ports:
       - "${API_PORT}:${API_PORT}"
