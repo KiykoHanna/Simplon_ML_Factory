@@ -7,8 +7,9 @@ from mlflow.tracking import MlflowClient
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 
-# ================== ENV ==================
+#  ENV 
 os.environ["AWS_ACCESS_KEY_ID"] = "minioadmin"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "minioadmin"
 
@@ -31,7 +32,7 @@ mlflow.set_tracking_uri(MLFLOW_URI)
 print(f"MLflow URI: {MLFLOW_URI}, MinIO URI: {MINIO_URI}")
 
 
-# ================== MINIO ==================
+#  MINIO
 def prepare_minio():
     try:
         s3 = boto3.client(
@@ -45,20 +46,21 @@ def prepare_minio():
 
         if "mlflow" not in buckets:
             s3.create_bucket(Bucket="mlflow")
-            print("Bucket 'mlflow' создан успешно.")
+            print("Bucket 'mlflow' created successfully.")
         else:
-            print("Bucket 'mlflow' уже существует.")
+            print("Bucket 'mlflow' exist.")
 
     except Exception as e:
-        print(f"Ошибка MinIO: {e}")
+        print(f"Error MinIO: {e}")
 
-# ================== TRAIN ==================
+#  TRAIN ---------------------------------------------------------------
 def train_and_register():
     mlflow.set_tracking_uri(MLFLOW_URI)
     mlflow.set_experiment("iris_experiment")
 
     # параметры модели
-    params = {"n_estimators": n_estimators}
+    # params = {"n_estimators": n_estimators}
+    params = {"max_iter": 300}
 
     with mlflow.start_run() as run:
         # обучение
@@ -78,7 +80,7 @@ def train_and_register():
             registered_model_name=model_name,
         )
 
-    # ================== ALIAS ==================
+    #  ALIAS ---------------------------------------------------
     client = MlflowClient()
 
     latest_version = client.get_latest_versions(
@@ -90,7 +92,7 @@ def train_and_register():
     if AUTO_PROMOTE:
         client.set_registered_model_alias(model_name, "Production", latest_version)
 
-# ================== DATA ==================
+# DATA ---------------------------------------------------------
 iris = load_iris()
 X = iris.data
 y = iris.target
@@ -99,11 +101,12 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
 
-# ================== MODEL ==================
-n_estimators = 100
-model = RandomForestClassifier(n_estimators=n_estimators)
+#  MODEL  --------------------------------------------------
+# n_estimators = 100
+# model = RandomForestClassifier(n_estimators=n_estimators)
+model = LogisticRegression(max_iter=300)
 
-# ================== RUN ==================
+#  RUN -------------------------------------------------------------------
 if __name__ == "__main__":
     prepare_minio()
     train_and_register()
