@@ -15,7 +15,7 @@ services:
 
   # MLflow — каталог моделей (Model Registry)
   mlflow:
-    image: python:3.10
+    image: ghcr.io/mlflow/mlflow
     container_name: mlflow
     environment:
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
@@ -24,8 +24,11 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
     ports:
       - "5000:5000"
-    command: |
-      sh -c "pip install --no-cache-dir mlflow==2.12.2 && mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root s3://mlflow --host 0.0.0.0 --serve-artifacts"
+    command: >
+      mlflow server
+        --backend-store-uri sqlite:///mlflow.db
+        --default-artifact-root s3://mlflow/
+        --host 0.0.0.0
     depends_on:
       - minio
 
