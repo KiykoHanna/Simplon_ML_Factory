@@ -1,0 +1,7 @@
+__pycache__
+.git
+venv
+.venv
+*.pyc
+.egg-info
+ml_fact_venv

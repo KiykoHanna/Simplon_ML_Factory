@@ -1,4 +1,39 @@
 services:
+  # LA BASE DE DONNÉES
+  database:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=prefect
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=prefect
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - prefect-network
+  
+  server:
+    image: prefecthq/prefect:3-latest
+    restart: always
+    volumes:
+      - prefect_data:/root/.prefect
+    entrypoint: ["prefect", "server", "start"]
+    environment:
+      # Connection DB
+      - PREFECT_API_DATABASE_CONNECTION_URL=postgresql+asyncpg://prefect:${POSTGRES_PASSWORD}@database:5432/prefect
+      # Autorise le serveur à écouter toutes les interfaces réseau du conteneur (extérieur au conteneur)
+      - PREFECT_SERVER_API_HOST=0.0.0.0
+      # 127.0.0.1 pointait vers le conteneur lui-même, pas le serveur Prefect
+      - PREFECT_API_URL=http://server:4200/api
+      # L'URL que l'UI utilisera
+      - PREFECT_UI_API_URL=http://localhost:4200/api
+    ports:
+      - "4200:4200"
+    depends_on:
+      - database
+    networks:
+      - prefect-network
+  
   # MinIO — хранилище моделей
   minio:
     image: minio/minio:latest
@@ -12,6 +47,8 @@ services:
       - "9000:9000"
       - "9001:9001"
     command: server /data --console-address ":9001"
+    networks:
+    - prefect-network
 
   # MLflow — каталог моделей (Model Registry)
   mlflow:
@@ -32,8 +69,18 @@ services:
         --allowed-hosts "mlflow:*, localhost:*, minio:*"
     depends_on:
       - minio
+    networks:
+    - prefect-network
 
-   
+  flow:
+    build: ./flow
+    image: hannakiyk/ml_factory-flow
+    environment:
+      PREFECT_API_URL: http://server:4200/api
+    depends_on:
+      - server
+      - minio
+      - mlflow 
   api:
     build: ./src/api
     environment:
@@ -59,6 +106,13 @@ services:
     depends_on:
       - api
 
+
+networks:
+  prefect-network:
+    driver: bridge
+
 # Persistent volumes
 volumes:
   minio_data:
+  db_data:
+  prefect_data:

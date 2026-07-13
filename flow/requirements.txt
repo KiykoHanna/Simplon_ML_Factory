@@ -1,0 +1,6 @@
+prefect[all]
+mlflow
+scikit-learn
+minio
+python-dotenv
+boto3
